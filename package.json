@@ -1,0 +1,27 @@
+{
+  "name": "prscan",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "ru1n <113791864+ddddhm1234@users.noreply.github.com>",
+  "license": "MIT",
+  "dependencies": {
+    "@babel/parser": "^7.28.4",
+    "@babel/traverse": "^7.28.4",
+    "@types/babel__traverse": "^7.28.0",
+    "@types/gunzip-maybe": "^1.4.2",
+    "@yarnpkg/parsers": "^3.0.3",
+    "got": "^14.5.0",
+    "gunzip-maybe": "^1.4.2",
+    "octokit": "^5.0.3",
+    "semver": "^7.7.3",
+    "tar-stream": "^3.1.7"
+  },
+  "type": "module",
+  "devDependencies": {
+    "@babel/types": "^7.28.4",
+    "@types/node": "^24.7.2",
+    "@types/semver": "^7.7.1",
+    "@types/tar-stream": "^3.1.4",
+    "@types/yarnpkg__lockfile": "^1.1.9"
+  }
+}
