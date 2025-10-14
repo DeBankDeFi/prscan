@@ -13,7 +13,9 @@ export class GitHubRepo {
     public async getPRInfo(owner: string, repo: string, pull_number: number) {
         for (let i = 0; i < this.maxRetries; i++) {
             try {
-                console.info(`Fetching PR info ${owner}/${repo}#${pull_number}`);
+                console.info(
+                    `Fetching PR info ${owner}/${repo}#${pull_number}`
+                );
                 const { data } = await this.octokit.rest.pulls.get({
                     owner,
                     repo,
@@ -39,7 +41,9 @@ export class GitHubRepo {
             let data;
             for (let i = 0; i < this.maxRetries; i++) {
                 try {
-                    console.info(`Fetching PR files ${owner}/${repo}#${pull_number} page ${page}`);
+                    console.info(
+                        `Fetching PR files ${owner}/${repo}#${pull_number} page ${page}`
+                    );
                     data = await this.octokit.rest.pulls.listFiles({
                         owner,
                         repo,
@@ -71,23 +75,50 @@ export class GitHubRepo {
         ref: string
     ): Promise<string | null> {
         // 使用多种方式获取文件内容，解决原API经常超时的问题
-        
-        // 方法1: 直接使用Raw URL (最快，推荐)
+
         try {
-            console.info(`Fetching ${owner}/${repo}/${path}@${ref} via raw URL`);
-            const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${ref}/${path}`;
-            const response = await got(rawUrl);
-            if (response.statusCode === 200) {
-                return response.body;
+            console.info(
+                `Fetching ${owner}/${repo}/${path}@${ref} via Git Data API`
+            );
+
+            // 先获取commit的tree
+            const { data: commit } = await this.octokit.rest.git.getCommit({
+                owner,
+                repo,
+                commit_sha: ref,
+            });
+
+            // 递归查找文件
+            const blob = await this.findFileInTree(
+                owner,
+                repo,
+                commit.tree.sha,
+                path
+            );
+            if (blob) {
+                const { data: blobData } = await this.octokit.rest.git.getBlob({
+                    owner,
+                    repo,
+                    file_sha: blob.sha!,
+                });
+
+                if (blobData.encoding === "base64") {
+                    return Buffer.from(blobData.content, "base64").toString(
+                        "utf-8"
+                    );
+                }
             }
         } catch (error) {
-            console.warn(`Raw URL failed for ${path}:`, error);
+            console.warn(`Git Data API failed for ${path}:`, error);
         }
 
-        // 方法2: 使用 GitHub Contents API (带重试)
         for (let i = 0; i < this.maxRetries; i++) {
             try {
-                console.info(`Fetching ${owner}/${repo}/${path}@${ref} via Contents API (attempt ${i + 1})`);
+                console.info(
+                    `Fetching ${owner}/${repo}/${path}@${ref} via Contents API (attempt ${
+                        i + 1
+                    })`
+                );
                 const { data } = await this.octokit.rest.repos.getContent({
                     owner,
                     repo,
@@ -97,7 +128,9 @@ export class GitHubRepo {
 
                 if ("content" in data && data.content) {
                     // 使用 Buffer 解码 base64 内容 (替代 atob，更可靠)
-                    return Buffer.from(data.content, 'base64').toString('utf-8');
+                    return Buffer.from(data.content, "base64").toString(
+                        "utf-8"
+                    );
                 } else if ("download_url" in data && data.download_url) {
                     // 文件过大时：使用 download_url 获取原始内容
                     const response = await got(data.download_url);
@@ -106,45 +139,37 @@ export class GitHubRepo {
                     }
                 }
             } catch (error) {
-                console.warn(`Contents API attempt ${i + 1} failed for ${path}:`, error);
+                console.warn(
+                    `Contents API attempt ${i + 1} failed for ${path}:`,
+                    error
+                );
                 if (i === this.maxRetries - 1) {
                     // 最后一次重试失败，尝试其他方法
                     break;
                 }
                 // 等待一段时间再重试
-                await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+                await new Promise((resolve) =>
+                    setTimeout(resolve, 200 * (i + 1))
+                );
             }
         }
 
-        // 方法3: 使用 Git Data API (作为最后手段)
         try {
-            console.info(`Fetching ${owner}/${repo}/${path}@${ref} via Git Data API`);
-            
-            // 先获取commit的tree
-            const { data: commit } = await this.octokit.rest.git.getCommit({
-                owner,
-                repo,
-                commit_sha: ref,
-            });
-
-            // 递归查找文件
-            const blob = await this.findFileInTree(owner, repo, commit.tree.sha, path);
-            if (blob) {
-                const { data: blobData } = await this.octokit.rest.git.getBlob({
-                    owner,
-                    repo,
-                    file_sha: blob.sha!,
-                });
-
-                if (blobData.encoding === 'base64') {
-                    return Buffer.from(blobData.content, 'base64').toString('utf-8');
-                }
+            console.info(
+                `Fetching ${owner}/${repo}/${path}@${ref} via raw URL`
+            );
+            const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${ref}/${path}`;
+            const response = await got(rawUrl);
+            if (response.statusCode === 200) {
+                return response.body;
             }
         } catch (error) {
-            console.warn(`Git Data API failed for ${path}:`, error);
+            console.warn(`Raw URL failed for ${path}:`, error);
         }
 
-        console.error(`All methods failed to fetch ${owner}/${repo}/${path}@${ref}`);
+        console.error(
+            `All methods failed to fetch ${owner}/${repo}/${path}@${ref}`
+        );
         return null;
     }
 
@@ -157,9 +182,9 @@ export class GitHubRepo {
         treeSha: string,
         filePath: string
     ): Promise<{ sha: string } | null> {
-        const pathParts = filePath.split('/');
+        const pathParts = filePath.split("/");
         let currentTreeSha = treeSha;
-        let currentPath = '';
+        let currentPath = "";
 
         for (let i = 0; i < pathParts.length; i++) {
             const part = pathParts[i]!;
@@ -172,17 +197,17 @@ export class GitHubRepo {
                     tree_sha: currentTreeSha,
                 });
 
-                const item = tree.tree.find(item => item.path === part);
+                const item = tree.tree.find((item) => item.path === part);
                 if (!item) {
                     return null;
                 }
 
                 if (i === pathParts.length - 1) {
                     // 这是最后一个部分，应该是文件
-                    return item.type === 'blob' ? { sha: item.sha! } : null;
+                    return item.type === "blob" ? { sha: item.sha! } : null;
                 } else {
                     // 这是一个目录，继续递归
-                    if (item.type === 'tree') {
+                    if (item.type === "tree") {
                         currentTreeSha = item.sha!;
                     } else {
                         return null;
