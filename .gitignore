@@ -1,2 +1,4 @@
 node_modules
 dist
+frpc
+start.sh

@@ -2,7 +2,7 @@
     "configurations": [
         {
             "name": "Launch Program",
-            "program": "${workspaceFolder}/dist/index.js",
+            "program": "${workspaceFolder}/dist/bot/lark.js",
             "request": "launch",
             "skipFiles": [
                 "<node_internals>/**"
