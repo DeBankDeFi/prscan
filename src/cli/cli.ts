@@ -64,7 +64,7 @@ program.command("github").description("根据GitHub Pull Request分析NPM依赖�
                 const prNumber = match[3];
 
                 const sr = await scanPRRisks(owner!, repo!, parseInt(prNumber!), options.token);
-                const report = makeReportInMd(sr);
+                const report = makeReportInMd(sr!);
                 if (options.output.length > 0) {
                     writeFileSync(options.output, report.report, { encoding: "utf-8" });
                     console.log(`分析报告已写入 ${options.output}`);
