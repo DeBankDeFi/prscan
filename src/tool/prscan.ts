@@ -5,7 +5,7 @@ import {
     type NpmDownloadStats,
     type NpmPackageInfo,
 } from "../util/npm.js";
-import { YarnLockParser } from "../util/parse.js";
+import { YarnLockParser, PnpmLockParser } from "../util/parse.js";
 
 import { GitHubRepo } from "../util/repo.js";
 
@@ -40,14 +40,7 @@ export class VersionRisk extends BaseRisk {
     static build(pkg: RelatedPackage, version: string): VersionRisk | null {
         const latestVersion = pkg.package["dist-tags"].latest;
         if (semver.eq(version, latestVersion)) {
-            return new VersionRisk(
-                pkg,
-                `${pkg.package.name} 使用了最新版本: ${version}`
-            );
-        }
-
-        if (version in pkg.package.time) {
-            const publishedTime = pkg.package.time[version];
+            const publishedTime = pkg.package.time[latestVersion];
             if (publishedTime) {
                 const isRecent =
                     Date.now() - new Date(publishedTime).getTime() <
@@ -55,11 +48,26 @@ export class VersionRisk extends BaseRisk {
                 if (isRecent) {
                     return new VersionRisk(
                         pkg,
-                        `${pkg.package.name} 使用了30天内发布的版本: ${version}`
+                        `${pkg.package.name} 使用了最新版本: ${version}, 且该版本为30天内发布`
                     );
                 }
             }
         }
+
+        // if (version in pkg.package.time) {
+        //     const publishedTime = pkg.package.time[version];
+        //     if (publishedTime) {
+        //         const isRecent =
+        //             Date.now() - new Date(publishedTime).getTime() <
+        //             1000 * 60 * 60 * 24 * 30; // 30天
+        //         if (isRecent) {
+        //             return new VersionRisk(
+        //                 pkg,
+        //                 `${pkg.package.name} 使用了30天内发布的版本: ${version}`
+        //             );
+        //         }
+        //     }
+        // }
         return null;
     }
 }
@@ -312,14 +320,21 @@ export class ObfuscationRisk extends BaseRisk {
         let hit = false;
         let info = "";
 
+        // 被混淆过的代码有如下特征
+        // 1. 包含特定混淆关键字，如 while(!![]), +-parseInt(
+        // 2. 包含典型混淆变量名，如 _0xabc123
         const obfsKeywords = ["while(!![])", "+-parseInt("];
+        const obfsIdentifier = /_0x[0-9a-fA-F]{6}/;
         for (const [file, content] of Object.entries(files)) {
             if (obfsKeywords.some((kw) => content.includes(kw))) {
+                hit = true;
+            } else if (obfsIdentifier.test(content)) {
                 hit = true;
             }
 
             info += `- ${file} 被混淆\n`;
         }
+
         return hit ? new ObfuscationRisk(pkg, info.trim()) : null;
     }
 }
@@ -462,6 +477,58 @@ export async function scanPkgRisks(
     };
 }
 
+export async function scanByFileDiff(
+    files: Array<{
+        filename: string;
+        oldContent: string;
+        newContent: string;
+    }>
+) {
+    let changedDeps: Set<string> = new Set();
+    const sr: PRScanResult = {
+        changedDeps: [],
+    };
+    for (const file of files) {
+        if (file.filename.endsWith("pnpm-lock.yaml")) {
+            const p1 = new PnpmLockParser(file.oldContent);
+            const p2 = new PnpmLockParser(file.newContent);
+            const depsNew = PnpmLockParser.deps2Set(p1.getDependencies());
+            const depsOld = PnpmLockParser.deps2Set(p2.getDependencies());
+
+            // 对比集合差异, 寻找变更依赖
+            changedDeps = changedDeps.union(depsNew.difference(depsOld));
+            continue;
+        } else if (file.filename.endsWith("yarn.lock")) {
+            const p1 = new YarnLockParser(file.oldContent);
+            const p2 = new YarnLockParser(file.newContent);
+            const depsNew = YarnLockParser.deps2Set(p1.getDependencies());
+            const depsOld = YarnLockParser.deps2Set(p2.getDependencies());
+
+            // 对比集合差异, 寻找变更依赖
+            changedDeps = changedDeps.union(depsNew.difference(depsOld));
+        }
+    }
+
+    for (const dep of changedDeps) {
+        const name = dep.slice(0, dep.lastIndexOf("@"));
+        const version = dep.slice(dep.lastIndexOf("@") + 1);
+
+        const pkgScan = await scanPkgRisks(name, version);
+        sr.changedDeps.push({
+            name,
+            version,
+            packageInfo: pkgScan.package,
+            downloadInfo: pkgScan.downloadInfo,
+            analyze: {
+                global: pkgScan.globalUsage,
+            },
+            risks: pkgScan.risks,
+        });
+    }
+
+    return sr;
+}
+
 export async function scanPRRisks(
     owner: string,
     repo: string,
@@ -486,7 +553,10 @@ export async function scanPRRisks(
             continue; // 跳过已删除的文件
         }
 
-        if (file.filename === "yarn.lock" || file.filename === "pnpm-lock.yaml") {
+        if (
+            file.filename === "yarn.lock" ||
+            file.filename === "pnpm-lock.yaml"
+        ) {
             if (file.status !== "added") {
                 const yarnNew = await github.getTextFileContent(
                     owner,

@@ -8,11 +8,13 @@ import { makeReportInMd, md2Img } from "./report/index.js";
 import { writeFileSync } from "node:fs";
 
 
+// https://github.com/DeBankDeFi/defi-insight-react/pull/2323
+
 const pr = await scanPRRisks(
-    "RabbyHub",
-    "rabby-mobile",
-    1082,
-    "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")
+    "DeBankDeFi",
+    "defi-insight-react",
+    2323,
+    "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")
 
 const r = makeReportInMd(pr!);
 
