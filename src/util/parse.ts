@@ -6,7 +6,6 @@ export class YarnLockParser {
     constructor(content: string) {
         this.syml = parseSyml(content);
     }
-
     private static getPackageName(key: string): string {
         key = key.split(",")[0]!.trim();
         key = key.split(":")[0]!.trim();

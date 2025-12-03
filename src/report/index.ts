@@ -13,12 +13,14 @@ export function makeReportInMd(sr: PRScanResult): {
     if (sr.changedDeps.length === 0) {
         md += "无依赖变更\n";
     } else {
+        md += "```\n";
         md += "| 依赖 | 版本 | 风险 | 下载 | 周下载量 | 最新版 |\n";
         md += "|:---- |:---- |:---- |:---- |:---- |:---- |\n";
         const depSorted = sr.changedDeps.sort((a, b) => b.risks.length - a.risks.length);
         for (const dep of depSorted) {
             md += `| ${dep.name} | ${dep.version} | ${dep.risks.length} | ${dep.packageInfo.versions[dep.version]!.dist.tarball} | ${dep.downloadInfo.downloads} | ${dep.packageInfo["dist-tags"].latest} |\n`;
         }
+        md += "\n```\n\n";
 
         md += "\n## 详细风险信息\n\n";
         for (const dep of depSorted) {

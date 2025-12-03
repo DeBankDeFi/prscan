@@ -486,7 +486,7 @@ export async function scanPRRisks(
             continue; // 跳过已删除的文件
         }
 
-        if (file.filename === "yarn.lock") {
+        if (file.filename === "yarn.lock" || file.filename === "pnpm-lock.yaml") {
             if (file.status !== "added") {
                 const yarnNew = await github.getTextFileContent(
                     owner,

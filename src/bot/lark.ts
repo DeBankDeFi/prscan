@@ -86,73 +86,31 @@ const eventDispatcher = new lark.EventDispatcher({
                     .then((result) => {
                         const report = makeReportInMd(result!);
 
-                        md2Img(report.report)
-                            .then((imgBuffer) => {
-                                client.im.image
-                                    .create({
-                                        data: {
-                                            image_type: "message",
-                                            image: createReadStreamFromBuffer(imgBuffer!),
-                                        },
-                                    })
-                                    .then((res) => {
-                                        client.im.message.reply({
-                                            path: {
-                                                message_id:
-                                                    data.message.message_id,
-                                            },
-                                            data: {
-                                                content: JSON.stringify({
-                                                    zh_cn: {
-                                                        title: `PR安全扫描结果 - ${owner}/${repo}#${prNumber}`,
-                                                        content: [
-                                                            [
-                                                                {
-                                                                    tag: "text",
-                                                                    text: `摘要: ${report.abstract}\n详细结果见下图:`,
-                                                                },
-                                                                {
-                                                                    tag: "img",
-                                                                    image_key:
-                                                                        res!
-                                                                            .image_key!,
-                                                                },
-                                                            ],
-                                                        ],
-                                                    },
-                                                }),
-                                                msg_type: "post",
-                                            },
-                                        });
-                                    })
-                                    .catch((error) => {
-                                        client.im.message.reply({
-                                            path: {
-                                                message_id:
-                                                    data.message.message_id,
-                                            },
-                                            data: {
-                                                content: JSON.stringify({
-                                                    text: `摘要: ${report.abstract}\n生成图片失败: ${error.message}`,
-                                                }),
-                                                msg_type: "text",
-                                            },
-                                        });
-                                    });
-                            })
-                            .catch((error) => {
-                                client.im.message.reply({
-                                    path: {
-                                        message_id: data.message.message_id,
+                        client.im.message.reply({
+                            path: {
+                                message_id: data.message.message_id,
+                            },
+                            data: {
+                                content: JSON.stringify({
+                                    zh_cn: {
+                                        title: `PR安全扫描结果 - ${owner}/${repo}#${prNumber}`,
+                                        content: [
+                                            [
+                                                {
+                                                    tag: "text",
+                                                    text: `摘要: ${report.abstract}\n详细结果见下图:`,
+                                                },
+                                                {
+                                                    tag: "md",
+                                                    text: report.report,
+                                                },
+                                            ],
+                                        ],
                                     },
-                                    data: {
-                                        content: JSON.stringify({
-                                            text: `扫描PR ${prLink} 失败: ${error.message}`,
-                                        }),
-                                        msg_type: "text",
-                                    },
-                                });
-                            });
+                                }),
+                                msg_type: "post",
+                            },
+                        });
                     })
                     .catch((error) => {
                         client.im.message.reply({
@@ -195,30 +153,32 @@ server.on(
 
 server.listen(port);
 
-
 function createReadStreamFromBuffer(buffer: Buffer, options = {}) {
-  // 在系统临时目录创建文件
-  const tempDir = os.tmpdir();
-  const tempFile = path.join(tempDir, `buffer-stream-${Date.now()}-${Math.random().toString(36).substr(2)}`);
-  
-  // 同步写入临时文件
-  fs.writeFileSync(tempFile, buffer);
-  
-  // 创建 read stream
-  const readStream = fs.createReadStream(tempFile, options);
-  
-  // 自动清理临时文件
-  const cleanup = () => {
-    fs.unlink(tempFile, (err) => {
-      if (err && err.code !== 'ENOENT') {
-        console.error('清理临时文件失败:', err);
-      }
-    });
-  };
-  
-  readStream.on('close', cleanup);
-  readStream.on('error', cleanup);
-  readStream.on('end', cleanup);
-  
-  return readStream;
+    // 在系统临时目录创建文件
+    const tempDir = os.tmpdir();
+    const tempFile = path.join(
+        tempDir,
+        `buffer-stream-${Date.now()}-${Math.random().toString(36).substr(2)}`
+    );
+
+    // 同步写入临时文件
+    fs.writeFileSync(tempFile, buffer);
+
+    // 创建 read stream
+    const readStream = fs.createReadStream(tempFile, options);
+
+    // 自动清理临时文件
+    const cleanup = () => {
+        fs.unlink(tempFile, (err) => {
+            if (err && err.code !== "ENOENT") {
+                console.error("清理临时文件失败:", err);
+            }
+        });
+    };
+
+    readStream.on("close", cleanup);
+    readStream.on("error", cleanup);
+    readStream.on("end", cleanup);
+
+    return readStream;
 }
