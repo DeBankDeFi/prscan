@@ -1,12 +1,13 @@
 {
   "name": "prscan",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "main": "index.js",
   "author": "ru1n <113791864+ddddhm1234@users.noreply.github.com>",
   "license": "MIT",
   "bin": {
     "prscan": "./dist/cli/cli.js"
   },
+  "files": ["./dist"],
   "dependencies": {
     "@babel/parser": "^7.28.4",
     "@babel/traverse": "^7.28.4",
