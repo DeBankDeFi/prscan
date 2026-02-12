@@ -4,6 +4,8 @@ import { execSync } from "child_process";
 import { scanByFileDiff, scanPRRisks } from "../tool/prscan.js";
 import { writeFileSync } from "fs";
 import { makeReportInMd } from "../report/index.js";
+import { Octokit } from "octokit";
+
 program
     .command("branch")
     .description("根据分支文件变更分析NPM依赖变更")
@@ -53,7 +55,8 @@ program.command("github").description("根据GitHub Pull Request分析NPM依赖�
     .argument("<link>", "Pull Request链接")
     .option("-t, --token <token>", "GitHub访问令牌", "")
     .option("-o, --output <output>", "输出文件路径，若不指定则输出到控制台", "")
-    .action(async (link: string, options: { token: string, output: string }) => {
+    .option("--reply", "回复分析结果到Pull Request中", false)
+    .action(async (link: string, options: { token: string, output: string, reply: boolean }) => {
         console.log(`分析 Pull Request: ${link}`);
 
         const match = link.match(
@@ -72,6 +75,19 @@ program.command("github").description("根据GitHub Pull Request分析NPM依赖�
                 } else {
                     console.log(report.report);
                 }
+                if (options.reply) {
+                    console.log("正在回复分析结果到Pull Request...");
+                    
+                    const octokit = new Octokit({ auth: options.token.length > 0 ? options.token : undefined });
+                    await octokit.rest.issues.createComment({
+                        owner: owner!,
+                        repo: repo!,
+                        issue_number: parseInt(prNumber!),
+                        body: report.report,
+                    });
+                    console.log("回复完成");
+                }
+
             } else {
                 console.error("无法解析Pull Request链接");
                 return;

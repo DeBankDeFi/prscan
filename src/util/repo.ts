@@ -10,6 +10,30 @@ export class GitHubRepo {
         this.octokit = new Octokit(authToken ? { auth: authToken } : {});
     }
 
+    public async replyToPRComment(
+        owner: string,
+        repo: string,
+        pull_number: number,
+        body: string
+    ) {
+        for (let i = 0; i < this.maxRetries; i++) {
+            try {
+                console.info(
+                    `Posting comment to PR ${owner}/${repo}#${pull_number}`
+                );
+                await this.octokit.rest.issues.createComment({
+                    owner,
+                    repo,
+                    issue_number: pull_number,
+                    body,
+                });
+                return;
+            } catch (error) {}
+        }
+
+        throw new Error("回复PR评论失败");
+    }
+
     public async getPRInfo(owner: string, repo: string, pull_number: number) {
         for (let i = 0; i < this.maxRetries; i++) {
             try {
