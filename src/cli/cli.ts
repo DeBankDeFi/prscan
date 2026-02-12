@@ -5,7 +5,7 @@ import { scanByFileDiff, scanPRRisks } from "../tool/prscan.js";
 import { writeFileSync } from "fs";
 import { makeReportInMd } from "../report/index.js";
 import { Octokit } from "octokit";
-
+import { getInput } from "@actions/core";
 program
     .command("branch")
     .description("根据分支文件变更分析NPM依赖变更")
@@ -67,7 +67,14 @@ program.command("github").description("根据GitHub Pull Request分析NPM依赖�
                 const repo = match[2];
                 const prNumber = match[3];
 
-                const sr = await scanPRRisks(owner!, repo!, parseInt(prNumber!), options.token);
+                let token: string | undefined;
+                if (getInput("PRSCAN_BOT_TOKEN")) {
+                    token = getInput("PRSCAN_BOT_TOKEN");
+                } else if (options.token && options.token.length > 0) {
+                    token = options.token;
+                }
+
+                const sr = await scanPRRisks(owner!, repo!, parseInt(prNumber!), token);
                 const report = makeReportInMd(sr!);
                 if (options.output.length > 0) {
                     writeFileSync(options.output, report.report, { encoding: "utf-8" });
@@ -78,7 +85,7 @@ program.command("github").description("根据GitHub Pull Request分析NPM依赖�
                 if (options.reply) {
                     console.log("正在回复分析结果到Pull Request...");
                     
-                    const octokit = new Octokit({ auth: options.token.length > 0 ? options.token : undefined });
+                    const octokit = new Octokit({ auth: token });
                     await octokit.rest.issues.createComment({
                         owner: owner!,
                         repo: repo!,

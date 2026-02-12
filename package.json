@@ -7,8 +7,11 @@
   "bin": {
     "prscan": "./dist/cli/cli.js"
   },
-  "files": ["./dist"],
+  "files": [
+    "./dist"
+  ],
   "dependencies": {
+    "@actions/core": "^3.0.0",
     "@babel/parser": "^7.28.4",
     "@babel/traverse": "^7.28.4",
     "@larksuiteoapi/node-sdk": "^1.55.0",
